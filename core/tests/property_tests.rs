@@ -1,80 +1,97 @@
-// Property‑based tests for Titan Trit16 core
+use proptest::prelude::*;
+use titan_trit16_core::{Kleene, Trit16};
 
-#[cfg(test)]
-mod tests {
-    use proptest::prelude::*;
-    use titan_trit16_core::{trit16, Kleene, Trit16};
+proptest! {
+    #[test]
+    fn interleaved_round_trip(pos in any::<u16>(), neg in any::<u16>()) {
+        let original = Trit16::from_planes(pos, neg);
+        let encoded = original.to_u32_interleaved();
+        let decoded = Trit16::from_u32_interleaved(encoded);
 
-    // Reference encoder/decoder that does not reuse internal impl
-    fn ref_encode(trit: &Trit16) -> Vec<u8> {
-        // Simple direct bit‑plane serialization for testing
-        let mut bytes = Vec::new();
-        for plane in 0..16 {
-            let mut byte: u8 = 0;
-            for bit in 0..8 {
-                let idx = plane * 8 + bit;
-                let val = trit.get_bit(idx).unwrap_or(0);
-                byte |= (val << bit);
-            }
-            bytes.push(byte);
-        }
-        bytes
+        prop_assert_eq!(decoded, original);
     }
 
-    fn ref_decode(bytes: &[u8]) -> Option<Trit16> {
-        if bytes.len() != 16 { return None; }
-        let mut trit = Trit16::new();
-        for plane in 0..16 {
-            let byte = bytes[plane];
-            for bit in 0..8 {
-                let idx = plane * 8 + bit;
-                let val = (byte >> bit) & 1;
-                trit.set_bit(idx, val).ok()?;
-            }
-        }
-        Some(trit)
+    #[test]
+    fn get_matches_plane_encoding(
+        pos in any::<u16>(),
+        neg in any::<u16>(),
+        index in 0u8..16
+    ) {
+        let value = Trit16::from_planes(pos, neg);
+        let mask = 1u16 << index;
+
+        let expected = match (
+            (pos & mask) != 0,
+            (neg & mask) != 0
+        ) {
+            (true, false) => Kleene::True,
+            (false, true) => Kleene::False,
+            (false, false) => Kleene::Unknown,
+            (true, true) => Kleene::Trap,
+        };
+
+        prop_assert_eq!(value.get(index), Ok(expected));
     }
 
-    proptest! {
-        #[test]
-        fn round_trip_random(bits in proptest::collection::vec(0u8..=1, 128)) {
-            // Build a Trit16 from random bits
-            let mut trit = Trit16::new();
-            for (i, b) in bits.iter().enumerate() {
-                trit.set_bit(i, *b).unwrap();
-            }
-            let encoded = ref_encode(&trit);
-            // Use production encode if exists
-            let prod_enc = trit16::encode(&trit).expect("encode should succeed");
-            prop_assert_eq!(encoded, prod_enc);
-            // Decode using reference and production
-            let decoded_ref = ref_decode(&encoded).expect("ref decode");
-            let decoded_prod = trit16::decode(&encoded).expect("prod decode");
-            prop_assert_eq!(decoded_ref, decoded_prod);
-        }
+    #[test]
+    fn set_updates_only_selected_trit(
+        pos in any::<u16>(),
+        neg in any::<u16>(),
+        index in 0u8..16,
+        state in 0u8..4
+    ) {
+        let state = match state {
+            0 => Kleene::Unknown,
+            1 => Kleene::True,
+            2 => Kleene::False,
+            _ => Kleene::Trap,
+        };
 
-        #[test]
-        fn kleene_states(k in any::<Kleene>()) {
-            // Verify that encoding a single‑state Kleene behaves as spec
-            let trit = Trit16::from_kleene(k);
-            let enc = trit16::encode(&trit).unwrap();
-            let dec = trit16::decode(&enc).unwrap();
-            prop_assert_eq!(trit, dec);
-        }
+        let mut value = Trit16::from_planes(pos, neg);
+        let mask = 1u16 << index;
+        let untouched = !mask;
 
-        #[test]
-        fn logical_ops(a in any::<Trit16>(), b in any::<Trit16>()) {
-            // AND, OR, NOT, COLLIDE semantics
-            let and = a.and(&b);
-            let or = a.or(&b);
-            let not_a = a.not();
-            let collide = a.collide(&b);
-            // Encode/decode round‑trip for each
-            for op in &[and, or, not_a, collide] {
-                let enc = trit16::encode(op).unwrap();
-                let dec = trit16::decode(&enc).unwrap();
-                prop_assert_eq!(op, &dec);
-            }
-        }
+        value.set(index, state).unwrap();
+
+        prop_assert_eq!(value.get(index), Ok(state));
+
+        prop_assert_eq!(
+            value.pos() & untouched,
+            pos & untouched
+        );
+
+        prop_assert_eq!(
+            value.neg() & untouched,
+            neg & untouched
+        );
+    }
+
+    #[test]
+    fn bit_plane_operations_match_specification(
+        ap in any::<u16>(),
+        an in any::<u16>(),
+        bp in any::<u16>(),
+        bn in any::<u16>()
+    ) {
+        let a = Trit16::from_planes(ap, an);
+        let b = Trit16::from_planes(bp, bn);
+
+        let and = a.and(b);
+        prop_assert_eq!(and.pos(), ap & bp);
+        prop_assert_eq!(and.neg(), an | bn);
+
+        let or = a.or(b);
+        prop_assert_eq!(or.pos(), ap | bp);
+        prop_assert_eq!(or.neg(), an & bn);
+
+        let not = a.not();
+        prop_assert_eq!(not.pos(), an);
+        prop_assert_eq!(not.neg(), ap);
+
+        let collide = a.collide(b);
+        let conflict = (ap & bn) | (an & bp);
+
+        prop_assert_eq!(collide.pos(), (ap & bp) & !conflict);
+        prop_assert_eq!(collide.neg(), (an & bn) & !conflict);
     }
 }
