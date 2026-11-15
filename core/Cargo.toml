@@ -10,3 +10,9 @@ thiserror = "2"
 name = "titan_trit16_core"
 path = "src/lib.rs"
 crate-type = ["rlib"]
+
+[dev-dependencies]
+criterion = "0.5"
+proptest = "1"
+
+
