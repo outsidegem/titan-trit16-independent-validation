@@ -26,7 +26,7 @@ fn encode_bool(trit: Trit16) -> u16 {
 }
 
 fn main() {
-    const REPS: usize = 5_000_0; // 5 M ops per size
+    const REPS: usize = 50_000; // 5 M ops per size
     const SIZES: [usize; 3] = [1, 64, 1024];
     let mut rng = Lcg { state: 0xC0FFEE };
     println!("Phase 4 benchmark – Trit16 (release)");
