@@ -1,0 +1,128 @@
+name: TRIT16 External Consumer Integration
+
+on:
+  push:
+    branches:
+      - integration/phase-a-consumer-harness
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux-c-consumer:
+    name: Linux x86_64 C consumer
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install C build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build SDK shared library
+        run: cargo build --release -p titan_trit16_ffi
+
+      - name: Configure independent C consumer
+        run: |
+          cmake -S integration/linux-consumer \
+            -B build/trit16-linux-consumer \
+            -DTITAN_TRIT16_LIB_DIR="$GITHUB_WORKSPACE/target/release"
+
+      - name: Build and test independent C consumer
+        run: |
+          cmake --build build/trit16-linux-consumer --parallel
+          LD_LIBRARY_PATH="$GITHUB_WORKSPACE/target/release${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+            ctest --test-dir build/trit16-linux-consumer --output-on-failure
+
+  android-aar-consumer:
+    name: Android AAR external consumer
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable KVM permissions
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: |
+            platform-tools
+            platforms;android-35
+            build-tools;35.0.0
+            ndk;27.2.12479018
+
+      - name: Configure NDK
+        run: |
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,x86_64-linux-android
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked
+
+      - name: Build Android native libraries
+        run: |
+          cargo ndk \
+            -t arm64-v8a \
+            -t x86_64 \
+            -o android/src/main/jniLibs \
+            build --release -p titan_trit16_ffi
+
+      - name: Build SDK AAR
+        working-directory: android
+        run: |
+          gradle --no-daemon assembleRelease
+          test -s build/outputs/aar/titan-trit16-0.1.0.aar
+
+      - name: Stage AAR into independent consumer
+        run: |
+          cp android/build/outputs/aar/titan-trit16-0.1.0.aar \
+            integration/android-consumer/app/libs/
+
+      - name: Build independent Android application
+        working-directory: integration/android-consumer
+        run: gradle --no-daemon :app:assembleDebug
+
+      - name: Run independent consumer instrumentation tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          script: cd integration/android-consumer && gradle --no-daemon :app:connectedDebugAndroidTest
+
+      - name: Upload Android consumer test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trit16-android-consumer-test-reports
+          path: integration/android-consumer/app/build/reports/androidTests/
+          if-no-files-found: ignore
+          retention-days: 14
