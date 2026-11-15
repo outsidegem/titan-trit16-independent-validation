@@ -93,23 +93,7 @@ jobs:
           emulator-boot-timeout: 900
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: false
-          script: |
-            set -e
-            adb wait-for-device
-
-            for attempt in $(seq 1 60); do
-              BOOTED=$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
-              if [ "$BOOTED" = "1" ]; then
-                break
-              fi
-              sleep 5
-            done
-
-            test "$(adb shell getprop sys.boot_completed | tr -d '\r')" = "1"
-            adb shell pm list packages >/dev/null
-
-            cd android
-            gradle --no-daemon --stacktrace connectedDebugAndroidTest
+          script: cd android && gradle --no-daemon --stacktrace connectedDebugAndroidTest
 
       - uses: actions/upload-artifact@v4
         with:
