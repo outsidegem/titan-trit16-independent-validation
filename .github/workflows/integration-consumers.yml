@@ -123,8 +123,12 @@ jobs:
 
       - name: Stage AAR into independent consumer
         run: |
+          mkdir -p integration/android-consumer/app/libs
+          test -s android/build/outputs/aar/titan-trit16-0.1.0.aar
           cp android/build/outputs/aar/titan-trit16-0.1.0.aar \
-            integration/android-consumer/app/libs/
+            integration/android-consumer/app/libs/titan-trit16-0.1.0.aar
+          test -s integration/android-consumer/app/libs/titan-trit16-0.1.0.aar
+          echo "SDK AAR staged successfully."
 
       - name: Build independent Android application
         working-directory: integration/android-consumer
