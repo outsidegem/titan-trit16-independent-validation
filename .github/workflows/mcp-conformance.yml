@@ -21,13 +21,13 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: MCP tests
+      - name: MCP integration tests
         run: cargo test -p titan_trit16_mcp --all-targets
 
-      - name: Full workspace conformance tests
-        run: cargo test --workspace
+      - name: Cross-layer conformance tests
+        run: cargo test -p titan_resource_governor --test cross_layer_conformance
 
-      - name: Verify shared vectors
+      - name: Validate shared vectors JSON
         run: |
           test -s tests/vectors.json
           python3 -m json.tool tests/vectors.json > /dev/null

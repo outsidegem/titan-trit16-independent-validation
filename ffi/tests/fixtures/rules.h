@@ -28,16 +28,16 @@
 // ============================================================================
 // 1. THE CORE TERNARY 2-BIT STATES (Single Trit)
 // ============================================================================
-#define T_NULL  0b00  // 0  (Equilibrium / Unknown / Zero)
-#define T_POS   0b01  // +1 (True / Positive Assertion)
-#define T_NEG   0b10  // -1 (False / Negative Assertion)
-#define T_ERR   0b11  // Hardware Trap / Illegal State (Immediate Fault)
+#define T_NULL  0x00  // 0  (Equilibrium / Unknown / Zero)
+#define T_POS   0x01  // +1 (True / Positive Assertion)
+#define T_NEG   0x02  // -1 (False / Negative Assertion)
+#define T_ERR   0x03  // Hardware Trap / Illegal State (Immediate Fault)
 
 // 4-Trit Sensory Bit Masks (for 8-bit packed packets)
-#define MASK_LOGIC      0b00000011  // Trit 1: The Base Fact (Shift 0)
-#define MASK_INTENSITY  0b00001100  // Trit 2: The Magnitude (Shift 2)
-#define MASK_CONFIDENCE 0b00110000  // Trit 3: Internal Certainty (Shift 4)
-#define MASK_CONTEXT    0b11000000  // Trit 4: Relationship / Intent (Shift 6)
+#define MASK_LOGIC      0x03  // Trit 1: The Base Fact (Shift 0)
+#define MASK_INTENSITY  0x0C  // Trit 2: The Magnitude (Shift 2)
+#define MASK_CONFIDENCE 0x30  // Trit 3: Internal Certainty (Shift 4)
+#define MASK_CONTEXT    0xC0  // Trit 4: Relationship / Intent (Shift 6)
 
 // Convert single 2-bit trit to human integer {-1, 0, +1} with fail-stop trap check
 static inline int decode_trit_safe(uint8_t trit_val) {
@@ -47,7 +47,7 @@ static inline int decode_trit_safe(uint8_t trit_val) {
         case T_NULL: return 0;
         case T_ERR:
         default:
-            fprintf(stderr, "[FATAL] Hardware Trap 0b11 encountered in decode_trit_safe!\n");
+            fprintf(stderr, "[FATAL] Hardware Trap 0x03 encountered in decode_trit_safe!\n");
             return 0;
     }
 }
@@ -70,7 +70,7 @@ static inline const char* trit_to_str(uint8_t trit_val) {
     }
 }
 
-// Check if any trit in an 8-bit packet is in the illegal T_ERR (0b11) state
+// Check if any trit in an 8-bit packet is in the illegal T_ERR (0x03) state
 static inline bool titan_validate_packet(uint8_t packet) {
     for (int shift = 0; shift < 8; shift += 2) {
         if (((packet >> shift) & 0x03) == T_ERR) {
