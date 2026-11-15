@@ -42,6 +42,89 @@ jobs:
           LD_LIBRARY_PATH="$GITHUB_WORKSPACE/target/release${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
             ctest --test-dir build/trit16-linux-consumer --output-on-failure
 
+  linux-arm64-c-consumer:
+    name: Linux ARM64 C consumer
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install C build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Run full Rust workspace tests
+        run: cargo test --workspace -j 1
+
+      - name: Build ARM64 SDK shared library
+        run: cargo build --release -p titan_trit16_ffi
+
+      - name: Configure ARM64 C consumer
+        run: |
+          cmake -S integration/linux-consumer \
+            -B build/trit16-linux-arm64-consumer \
+            -DTITAN_TRIT16_LIB_DIR="$GITHUB_WORKSPACE/target/release"
+
+      - name: Build and test ARM64 C consumer
+        run: |
+          cmake --build build/trit16-linux-arm64-consumer --parallel
+          LD_LIBRARY_PATH="$GITHUB_WORKSPACE/target/release${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+            ctest --test-dir build/trit16-linux-arm64-consumer --output-on-failure
+
+  windows-x64-c-consumer:
+    name: Windows x64 MSVC C consumer
+    runs-on: windows-2025
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build Windows SDK DLL
+        run: cargo build --release -p titan_trit16_ffi
+
+      - name: Locate DLL and import library
+        shell: pwsh
+        run: |
+          $releaseDir = Join-Path $env:GITHUB_WORKSPACE "target\release"
+          $dll = Join-Path $releaseDir "titan_trit16_ffi.dll"
+          $importLib = Get-ChildItem $releaseDir -Filter "titan_trit16_ffi*.lib" |
+            Select-Object -First 1
+
+          if (!(Test-Path $dll)) {
+            throw "Rust SDK DLL was not produced: $dll"
+          }
+
+          if ($null -eq $importLib) {
+            Get-ChildItem $releaseDir
+            throw "Rust SDK import library was not produced."
+          }
+
+          "TITAN_TRIT16_IMPORT_LIB=$($importLib.FullName)" |
+            Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+          Add-Content -Path $env:GITHUB_PATH -Value $releaseDir
+
+      - name: Configure independent Windows C consumer
+        shell: pwsh
+        run: |
+          cmake -S integration/linux-consumer `
+            -B build/trit16-windows-consumer `
+            -A x64 `
+            "-DTITAN_TRIT16_LIB_DIR=$env:GITHUB_WORKSPACE\target\release" `
+            "-DTITAN_TRIT16_LIBRARY=$env:TITAN_TRIT16_IMPORT_LIB"
+
+      - name: Build and test Windows C consumer
+        shell: pwsh
+        run: |
+          cmake --build build/trit16-windows-consumer --config Release --parallel
+          ctest --test-dir build/trit16-windows-consumer -C Release --output-on-failure
+
   android-aar-consumer:
     name: Android AAR external consumer
     runs-on: ubuntu-latest
@@ -121,6 +204,14 @@ jobs:
           echo "Verified SDK AAR: $AAR_TARGET"
           unzip -l "$AAR_TARGET"
 
+      - name: Upload SDK AAR for physical-device validation
+        uses: actions/upload-artifact@v4
+        with:
+          name: titan-trit16-sdk-aar
+          path: android/build/outputs/aar/titan-trit16-0.1.0.aar
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Stage AAR into independent consumer
         run: |
           mkdir -p integration/android-consumer/app/libs
@@ -142,6 +233,17 @@ jobs:
           arch: x86_64
           profile: pixel_2
           script: cd integration/android-consumer && gradle --no-daemon :app:connectedDebugAndroidTest
+
+      - name: Upload Android consumer APKs for device testing
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: titan-trit16-android-device-apks
+          path: |
+            integration/android-consumer/app/build/outputs/apk/debug/*.apk
+            integration/android-consumer/app/build/outputs/apk/androidTest/debug/*.apk
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Upload Android consumer test reports
         if: always()

@@ -24,3 +24,17 @@
 Passing Phase A does not prove physical ARM64 Android execution,
 Linux ARM64 hardware execution, production deployment readiness,
 or safety/security certification. Those require separate validation.
+
+
+## Phase B — Broader Platform Compatibility
+
+- [ ] Linux ARM64 native workspace tests pass.
+- [ ] Linux ARM64 independent C11 shared-library consumer passes.
+- [ ] Windows x64 MSVC independent C11 DLL consumer passes.
+- [ ] Android AAR artifact is published for physical-device testing.
+- [ ] Android consumer APK and instrumentation APK are published.
+- [ ] Physical Android ARM64 device test passes.
+
+Phase A emulator validation was performed on x86_64.
+The AAR contains arm64-v8a and x86_64 native libraries.
+Physical ARM64 Android execution remains a separate acceptance item.
