@@ -17,7 +17,7 @@
 #pragma clang diagnostic ignored "-Wimplicit-int-conversion"
 #pragma clang diagnostic ignored "-Wsign-conversion"
 #endif
-#include "/data/data/com.termux/files/home/Titan_Unified_Core/rules.h"
+#include "fixtures/rules.h"
 #if defined(__clang__)
 #pragma clang diagnostic pop
 #endif
