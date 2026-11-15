@@ -1,0 +1,104 @@
+name: TRIT16 Android Validation
+
+on:
+  push:
+    branches: [main, workflows/trit16-validation-suite]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: |
+            platform-tools
+            platforms;android-35
+            build-tools;35.0.0
+            ndk;27.2.12479018
+
+      - name: Configure NDK
+        run: |
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_ROOT=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,x86_64-linux-android
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked
+
+      - name: Build Android native libraries
+        run: |
+          cargo ndk \
+            -t arm64-v8a \
+            -t x86_64 \
+            -o android/src/main/jniLibs \
+            build --release -p titan_trit16_ffi
+
+      - name: Verify native libraries
+        run: |
+          test -s android/src/main/jniLibs/arm64-v8a/libtitan_trit16_ffi.so
+          test -s android/src/main/jniLibs/x86_64/libtitan_trit16_ffi.so
+
+      - name: Build release AAR
+        working-directory: android
+        run: gradle --no-daemon assembleRelease
+
+      - name: Verify and checksum AAR
+        run: |
+          set -e
+          AAR=$(find android/build/outputs/aar -maxdepth 1 -name '*.aar' -print -quit)
+          test -n "$AAR"
+          test -s "$AAR"
+          unzip -l "$AAR" | grep -q AndroidManifest.xml
+          unzip -l "$AAR" | grep -q classes.jar
+          unzip -l "$AAR" | grep -q jni/arm64-v8a/libtitan_trit16_ffi.so
+          unzip -l "$AAR" | grep -q jni/x86_64/libtitan_trit16_ffi.so
+          mkdir -p artifacts
+          cp "$AAR" artifacts/titan-trit16-0.1.0.aar
+          sha256sum artifacts/titan-trit16-0.1.0.aar > artifacts/SHA256SUMS
+
+      - name: Run Android emulator tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          script: cd android && gradle --no-daemon connectedDebugAndroidTest
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: trit16-android-aar
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trit16-android-test-reports
+          path: android/build/reports/
+          if-no-files-found: ignore
+          retention-days: 14

@@ -1,0 +1,41 @@
+name: TRIT16 SDK Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release-build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Run tests
+        run: cargo test --workspace
+
+      - name: Build release libraries
+        run: cargo build --workspace --release
+
+      - name: Package release
+        run: |
+          mkdir -p release
+          cp target/release/libtitan_trit16_ffi.so release/
+          cp target/release/titan-mcp-server release/
+          sha256sum release/* > release/SHA256SUMS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: trit16-sdk-release-candidate
+          path: release/
+          if-no-files-found: error
+          retention-days: 30

@@ -1,0 +1,39 @@
+name: TRIT16 MCP and Conformance
+
+on:
+  push:
+    branches: [main, workflows/trit16-validation-suite]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mcp:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: MCP tests
+        run: cargo test -p titan_trit16_mcp --all-targets
+
+      - name: Full workspace conformance tests
+        run: cargo test --workspace
+
+      - name: Verify shared vectors
+        run: |
+          test -s tests/vectors.json
+          python3 -m json.tool tests/vectors.json > /dev/null
+
+      - name: Build MCP server
+        run: cargo build --release -p titan_trit16_mcp
+
+      - name: Verify MCP executable
+        run: test -x target/release/titan-mcp-server

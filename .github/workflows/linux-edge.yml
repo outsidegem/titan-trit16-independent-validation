@@ -1,0 +1,64 @@
+name: TRIT16 Linux and Edge Validation
+
+on:
+  push:
+    branches: [main, workflows/trit16-validation-suite]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            target: x86_64
+          - runner: ubuntu-24.04-arm
+            target: aarch64
+
+    runs-on: ${{ matrix.runner }}
+    name: Linux ${{ matrix.target }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Formatting
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Tests
+        run: cargo test --workspace
+
+      - name: Release build
+        run: cargo build --workspace --release
+
+      - name: Verify FFI library
+        run: |
+          find target/release -maxdepth 1 \
+            -name 'libtitan_trit16_ffi.so' -print -quit | grep .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: trit16-linux-${{ matrix.target }}
+          path: target/release/libtitan_trit16_ffi.so
+          if-no-files-found: error
+          retention-days: 14
+
+  integration-gate:
+    needs: linux
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo "Linux x86-64 and ARM64 validation passed."
