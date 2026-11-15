@@ -92,8 +92,8 @@ jobs:
           cores: 4
           emulator-boot-timeout: 900
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-          disable-animations: false
-          script: cd android && gradle --no-daemon --stacktrace connectedDebugAndroidTest
+          disable-animations: true
+          script: cd android && bash ../.github/scripts/wait-android-services.sh && gradle --no-daemon --stacktrace connectedDebugAndroidTest
 
       - uses: actions/upload-artifact@v4
         with:
