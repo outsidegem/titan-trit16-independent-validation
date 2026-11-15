@@ -1,0 +1,12 @@
+[package]
+name = "titan_trit16_ffi"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+titan_trit16_core = { path = "../core" }
+
+[lib]
+name = "titan_trit16_ffi"
+path = "src/lib.rs"
+crate-type = ["rlib", "cdylib", "staticlib"]

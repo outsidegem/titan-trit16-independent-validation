@@ -1,0 +1,19 @@
+[package]
+name = "titan_resource_governor"
+version = "0.1.0"
+edition = "2021"
+description = "Monitor-only telemetry homeostasis demo and cross-layer conformance harness for Titan Trit16"
+license = "MIT OR Apache-2.0"
+
+[[bin]]
+name = "titan-resource-governor"
+path = "src/main.rs"
+
+[dependencies]
+titan_trit16_core = { path = "../../core" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[dev-dependencies]
+titan_trit16_ffi = { path = "../../ffi" }
+titan_trit16_mcp = { path = "../../titan-mcp" }

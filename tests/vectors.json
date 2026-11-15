@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "1.0.0",
+  "description": "Canonical cross-layer conformance vectors for Titan Trit16 (Rust Core, C ABI, JNI, and MCP JSON-RPC)",
+  "vectors": [
+    {
+      "name": "all_unknown_zero",
+      "a": { "pos": 0, "neg": 0, "interleaved": 0, "trapMask": 0 },
+      "b": { "pos": 0, "neg": 0, "interleaved": 0, "trapMask": 0 },
+      "expected": {
+        "and": { "pos": 0, "neg": 0 },
+        "or": { "pos": 0, "neg": 0 },
+        "notA": { "pos": 0, "neg": 0 },
+        "collide": { "pos": 0, "neg": 0 },
+        "strictValid": true,
+        "unionTrapMask": 0
+      }
+    },
+    {
+      "name": "clean_sensor_banks",
+      "a": { "pos": 255, "neg": 65280, "interleaved": 2863289685, "trapMask": 0 },
+      "b": { "pos": 15, "neg": 61440, "interleaved": 2852126805, "trapMask": 0 },
+      "expected": {
+        "and": { "pos": 15, "neg": 65280 },
+        "or": { "pos": 255, "neg": 61440 },
+        "notA": { "pos": 65280, "neg": 255 },
+        "collide": { "pos": 15, "neg": 61440 },
+        "strictValid": true,
+        "unionTrapMask": 0
+      }
+    },
+    {
+      "name": "all_trap_word",
+      "a": { "pos": 65535, "neg": 65535, "interleaved": 4294967295, "trapMask": 65535 },
+      "b": { "pos": 65535, "neg": 65535, "interleaved": 4294967295, "trapMask": 65535 },
+      "expected": {
+        "and": { "pos": 65535, "neg": 65535 },
+        "or": { "pos": 65535, "neg": 65535 },
+        "notA": { "pos": 65535, "neg": 65535 },
+        "collide": { "pos": 0, "neg": 0 },
+        "strictValid": false,
+        "unionTrapMask": 65535
+      }
+    },
+    {
+      "name": "trap_semantic_divergence_pairs",
+      "a": { "pos": 15, "neg": 7, "interleaved": 127, "trapMask": 7 },
+      "b": { "pos": 14, "neg": 4, "interleaved": 116, "trapMask": 4 },
+      "expected": {
+        "and": { "pos": 14, "neg": 7 },
+        "or": { "pos": 15, "neg": 4 },
+        "notA": { "pos": 7, "neg": 15 },
+        "collide": { "pos": 8, "neg": 0 },
+        "strictValid": false,
+        "unionTrapMask": 7
+      }
+    }
+  ]
+}

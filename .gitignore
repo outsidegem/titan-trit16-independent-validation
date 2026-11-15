@@ -1,0 +1,19 @@
+
+# Rust
+/target/
+**/target/
+
+# Android / Gradle
+.gradle/
+**/.gradle/
+local.properties
+**/build/
+*.apk
+*.aab
+
+# Secrets and signing material
+.env
+.env.*
+*.keystore
+*.jks
+secrets/

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.titan.trit16">
+    <!--
+        Titan Trit16 Android SDK Manifest
+        - Zero network permissions (local-first deterministic execution)
+        - Zero privileged/root permissions required
+    -->
+</manifest>
