@@ -102,7 +102,24 @@ jobs:
         working-directory: android
         run: |
           gradle --no-daemon assembleRelease
-          test -s build/outputs/aar/titan-trit16-0.1.0.aar
+
+          AAR_SOURCE="$(find build/outputs/aar -maxdepth 1 -type f -name '*.aar' -print -quit)"
+
+          if [ -z "$AAR_SOURCE" ]; then
+            echo "::error::Gradle completed but no AAR was found."
+            find build/outputs -maxdepth 4 -type f -print || true
+            exit 1
+          fi
+
+          AAR_TARGET="build/outputs/aar/titan-trit16-0.1.0.aar"
+
+          if [ "$AAR_SOURCE" != "$AAR_TARGET" ]; then
+            cp "$AAR_SOURCE" "$AAR_TARGET"
+          fi
+
+          test -s "$AAR_TARGET"
+          echo "Verified SDK AAR: $AAR_TARGET"
+          unzip -l "$AAR_TARGET"
 
       - name: Stage AAR into independent consumer
         run: |
